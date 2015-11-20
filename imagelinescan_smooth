@@ -1,0 +1,62 @@
+#pragma rtGlobals=1		// Use modern global access method.
+
+// This script was originally written to analyze images in Lewis and Grandl 2015, ELife.
+// This script was written to denote the cell membrane inside the walls of a glass pipette from a jpg image in IgorPro.
+// It will draw a line, named "imagename_circle_smthnumstr" through the center of the membrane.
+// This line can subsequently be fit with a circle equation to find the radius of curvature.
+// Prior to running the script, the image must be loaded into IGOR and appended to a graph. 
+
+Function Imagelinescan(imagename,xstart,xend,ystart,yend,smthnum)
+
+String imagename 
+
+// to assist the script in finding the membrane, use the cursors to draw an imaginary "box" around the membrane. 
+// xstart, xend, ystart, and yend are the outer limits of this box and must be entered in the function in the command line.
+
+variable xstart 
+variable ystart 
+variable yend 
+variable xend 
+
+variable smthnum
+string smthnumstr = num2str(smthnum)
+
+// smthnum represents the smoothing number that will be used to perform a smooth function on each vertical line. 
+// for images of the quality in the referred manuscript, a smooth number of 9 was used.
+
+variable index = xstart
+string indexstr = num2str(index)
+
+
+do
+make/o/n=2 xpoints={index,index}, ypoints={ystart,yend}
+imagelineprofile xwave=xpoints, ywave=ypoints, srcwave=$(imagename+".jpg")
+rename M_imagelineprofile, $(imagename+"_"+"int"+"_"+indexstr)
+killwaves W_lineprofileX, W_lineprofileY
+index += 1
+indexstr = num2str(index)
+while (index <= (xend))
+
+// This performs the vertical line scan for each x pixel column and outputs a wave for each that plots the pixel intensity.
+
+variable ntraces=xend+1
+
+Make/O/N=(ntraces) circleraw  //This creates a wave that will store the y location of minimal pixel intensity for each x column.
+circleraw = 0
+index = xstart
+indexstr=num2str(index)
+
+do
+duplicate $(imagename+"_int_"+indexstr), $(imagename+"_smth_"+indexstr)
+smooth smthnum, $(imagename+"_smth_"+indexstr)      //this smooths each pixel intensity wave to reduce noise; a smooth number of 9 is a good starting point
+wavestats/Q $(imagename+"_smth_"+indexstr)
+circleraw[index]=V_minrowloc+ystart      //this inputs the location of the minimal intensity on the y axis for each smoothed wave into a new wave.
+killwaves $(imagename+"_int_"+indexstr), $(imagename+"_smth_"+indexstr)
+index += 1
+indexstr = num2str(index)
+while (index <= (xend))
+
+Rename circleraw,$(imagename+"_circ"+smthnumstr)        //this is the wave that contains the minimal intensity of each column; it is used to denote the membrane
+appendtograph $(imagename+"_circ"+smthnumstr)        //this appends the wave denoting the membrane to the original graph.
+
+end
